@@ -430,6 +430,7 @@ body{
         <div class="chips">
           <div class="chip sake-chip" data-g="sdetail" data-v="無濾過" onclick="stog(this)">無濾過</div>
           <div class="chip sake-chip" data-g="sdetail" data-v="生酒" onclick="stog(this)">生酒</div>
+          <div class="chip sake-chip" data-g="sdetail" data-v="原酒" onclick="stog(this)">原酒</div>
           <div class="chip sake-chip" data-g="sdetail" data-v="要冷蔵" onclick="stog(this)">要冷蔵</div>
         </div>
       </div>
@@ -917,10 +918,11 @@ function matchesTaste(s,taste){
   return false;
 }
 function matchesDetail(s,detail){
-  var pool=[s.type||'',s.hitokoto||'',s.tag1||'',s.tag2||'',s.displayType||''].join(' ');
-  if(detail==='無濾過')return pool.indexOf('無濾過')!==-1;
-  if(detail==='生酒')  return pool.indexOf('生酒')!==-1||pool.indexOf('しぼりたて')!==-1;
-  if(detail==='要冷蔵')return truthyFlag(s.coldFlag)||pool.indexOf('要冷蔵')!==-1;
+  // v40：専用フラグ列を優先参照
+  if(detail==='無濾過') return truthyFlag(s.murokaFlag);
+  if(detail==='生酒')   return s.namaKubun==='生酒'||s.namaKubun==='生貯蔵酒';
+  if(detail==='原酒')   return truthyFlag(s.genshuFlag);
+  if(detail==='要冷蔵') return truthyFlag(s.coldFlag);
   return false;
 }
 function truthyFlag(v){
