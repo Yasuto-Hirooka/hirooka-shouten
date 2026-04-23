@@ -711,6 +711,955 @@ function buildSakeTypeChips(){
   }).join('');
 }
 function buildSakeRiceChips(){
+  var prio=['山田錦','五百万石','愛山','雄山錦','雄町','八反錦','出羽燦々','ひだほまれ','ひとごこち','山恵錦','朝日米'];
+  var found={},rices=[];
+  sakes.forEach(function(s){
+    var r=normalizeRice(s.rice||'');
+    if(r&&!found[r]){found[r]=true;rices.push(r);}
+  });
+  rices.sort(function(a,b){
+    var ai=prio.indexOf(a),bi=prio.indexOf(b);
+    if(ai!==-1&&bi!==-1)return ai-bi;
+    if(ai!==-1)return -1;if(bi!==-1)return 1;
+    return a.localeCompare(b,'ja');
+  });
+  var el=document.getElementById('sake-rice-chips');
+  if(el) el.innerHTML=rices.map(function(r){
+    return'<div class="chip sake-chip" data-g="srice" data-v="'+escAttr(r)+'" onclick="stog(this)">'+escText(r)+'</div>';
+  }).join('');
+}
+
+// ★ 詳細用 棒グラフHTML
+function makeSakeBars(aroma,umami,dry,kire){
+  var axes=[
+    {label:'香り',left:'穏やか',right:'華やか',val:aroma},
+    {label:'旨み',left:'軽やか',right:'しっかり',val:umami},
+    {label:'辛口',left:'やや甘',right:'辛口',val:dry},
+    {label:'キレ',left:'やさしい',right:'キレる',val:kire}
+  ];
+  return axes.map(function(a){
+    var w=Math.round((Number(a.val)||3)/5*100);
+    return'<div class="sake-bar-row">'
+      +'<div class="sake-bar-axis">'+escText(a.label)+'</div>'
+      +'<div class="sake-bar-track-wrap">'
+      +'<span class="sake-bar-end left">'+escText(a.left)+'</span>'
+      +'<div class="sake-bar-track"><div class="sake-bar-fill" style="width:'+w+'%"></div></div>'
+      +'<span class="sake-bar-end right">'+escText(a.right)+'</span>'
+      +'</div></div>';
+  }).join('');
+}
+
+// ★ 結果カード用ミニバー
+function makeSakeMiniBars(aroma,umami,dry,kire){
+  var axes=[{lb:'香り',val:aroma},{lb:'旨み',val:umami},{lb:'辛口',val:dry},{lb:'キレ',val:kire}];
+  return'<div class="sake-mini-bars">'
+    +axes.map(function(a){
+      var w=Math.round((Number(a.val)||3)/5*100);
+      return'<div class="sake-mr">'
+        +'<span class="sake-ml">'+escText(a.lb)+'</span>'
+        +'<div class="sake-mt"><div class="sake-mf" style="width:'+w+'%"></div></div>'
+        +'</div>';
+    }).join('')
+    +'</div>';
+}
+
+function runSakeSearch(){
+  var prices=ssel['sprice']?Object.keys(ssel['sprice']):[];
+  var regions=ssel['sregion']?Object.keys(ssel['sregion']):[];
+  var tastes=ssel['staste']?Object.keys(ssel['staste']):[];
+  var types=ssel['stype']?Object.keys(ssel['stype']):[];
+  var details=ssel['sdetail']?Object.keys(ssel['sdetail']):[];
+  var rices=ssel['srice']?Object.keys(ssel['srice']):[];
+  var results=sakes.filter(function(s){
+    if(prices.length&&!prices.some(function(b){
+      var n=parseInt(b,10),p=s.priceNum||0;
+      if(n===1000)return p>0&&p<=1000;if(n===2000)return p>0&&p<=2000;
+      if(n===3500)return p>0&&p<=3500;if(n===9999)return p>3500;return true;
+    }))return false;
+    if(regions.length&&regions.indexOf(normalizeRegion(s.region||''))===-1)return false;
+    if(tastes.length&&!tastes.some(function(t){return matchesTaste(s,t);}))return false;
+    if(types.length&&types.indexOf(normalizeSakeType(s.type||''))===-1)return false;
+    if(details.length&&!details.every(function(d){return matchesDetail(s,d);}))return false;
+    if(rices.length&&!rices.some(function(r){return matchesRice(s,r);}))return false;
+    return true;
+  });
+  results.sort(function(a,b){return(a.priceNum||999999)-(b.priceNum||999999);});
+  document.getElementById('sake-result-header').innerHTML='<span class="result-count-num">'+results.length+'</span> 件見つかりました';
+  var el=document.getElementById('sake-result-list');
+  if(!results.length){
+    el.innerHTML='<div class="no-result">条件に合う日本酒が見つかりませんでした。<br>条件を変えてお試しください。</div>';
+  } else {
+    el.innerHTML=results.map(function(s){
+      var sh=s.recommendShelf?'<span class="r-shelf">'+escText(s.recommendShelf)+'</span>':(s.shelf?'<span class="r-shelf">'+escText(s.shelf)+'</span>':'');
+      var thumbHtml='<div class="sake-r-thumb" id="sthumb-'+escHtmlId(s.id)+'">'
+        +'<div class="sake-r-thumb-ph"><div class="mini-spinner"></div></div></div>';
+      var tg=[];
+      if(normalizeRegion(s.region||''))tg.push(normalizeRegion(s.region||''));
+      if(normalizeSakeType(s.type||''))tg.push(normalizeSakeType(s.type||''));
+      if(truthyFlag(s.coldFlag))tg.push('要冷蔵');
+      if((s.tags||[]).indexOf('山田錦')!==-1)tg.push('山田錦');
+      var tagHtml=tg.slice(0,4).map(function(t){return'<span class="sake-r-tag">'+escText(t)+'</span>';}).join('');
+      return'<div class="r-card" onclick="showSakeDetail(\''+esc(s.id)+'\')">'
+        +thumbHtml
+        +'<div class="r-info">'
+        +'<div class="r-name">'+escText(s.name)+'</div>'
+        +'<div class="r-tagline">'+escText(s.hitokoto||'')+'</div>'
+        +'<div class="r-meta"><span class="sake-r-price">'+escText(s.price||'')+'</span>'
+        +'<span class="r-badge">'+escText(normalizeSakeType(s.type||''))+'</span>'
+        +'<span class="r-badge">'+escText(normalizeRegion(s.region||''))+'</span>'
+        +sh+'</div>'
+        +makeSakeMiniBars(s.aroma,s.umami,s.dry,s.kire)
+        +'<div class="r-tags" style="margin-top:4px">'+tagHtml+'</div>'
+        +'</div></div>';
+    }).join('');
+    results.forEach(function(s){
+      var thumbId='sthumb-'+escHtmlId(s.id);
+      if(!s.fileId){var t=document.getElementById(thumbId);if(t)t.innerHTML='';return;}
+      if(imgCache[s.fileId]){var t2=document.getElementById(thumbId);if(t2)t2.innerHTML='<img src="'+imgCache[s.fileId]+'" />';return;}
+      (function(fid, tid){
+        fetch(GAS_URL + '?action=image&fileId=' + encodeURIComponent(fid))
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            var url = d.data || '';
+            if(url) imgCache[fid] = url;
+            var t = document.getElementById(tid);
+            if(t) t.innerHTML = url ? '<img src="'+url+'" />' : '';
+          })
+          .catch(function(){ var t=document.getElementById(tid); if(t) t.innerHTML=''; });
+      })(s.fileId, thumbId);
+    });
+  }
+  showScreen('sake-results');
+}
+
+function showSakeDetail(id){
+  var s=null;for(var i=0;i<sakes.length;i++){if(sakes[i].id===id){s=sakes[i];break;}}if(!s)return;
+  document.getElementById('sd-type').textContent      =s.type||'—';
+  document.getElementById('sd-shelf').textContent     =s.recommendShelf||s.shelf||'';
+  document.getElementById('sd-name').textContent      =s.name||'—';
+  document.getElementById('sd-origin').textContent    =s.region||'—';
+  document.getElementById('sd-hitokoto').textContent  =s.hitokoto||'—';
+  document.getElementById('sd-price').textContent     =s.price||'—';
+  document.getElementById('sd-brewery').textContent   =s.brewery||'—';
+  document.getElementById('sd-volume').textContent    =s.volume?(s.volume+'ml'):'—';
+  document.getElementById('sd-rice').textContent      =s.rice||'—';
+  document.getElementById('sd-polish').textContent    =s.polish?(String(s.polish).indexOf('%')!==-1?s.polish:s.polish+'%'):'—';
+  document.getElementById('sd-alcohol').textContent   =s.alcohol?(String(s.alcohol).indexOf('度')!==-1?s.alcohol:s.alcohol+'度'):'—';
+  document.getElementById('sd-temp').textContent      =s.temp||'—';
+  document.getElementById('sd-ryori').textContent     =s.ryori||'—';
+  document.getElementById('sd-hito').textContent      =s.hito||'—';
+  document.getElementById('sd-nihonshudo').textContent=s.nihonshudo||'—';
+  document.getElementById('sd-acidity').textContent   =s.acidity||'—';
+  // ★ 自由メモ → AIテイスティングノート
+  document.getElementById('sd-tasting').textContent   =s.tasting||'—';
+  document.getElementById('sd-tags').innerHTML=(s.tags||[]).map(function(t){
+    return'<span class="sake-detail-tag">'+escText(t)+'</span>';
+  }).join('');
+  // 棒グラフ描画
+  document.getElementById('sd-bars').innerHTML=makeSakeBars(s.aroma,s.umami,s.dry,s.kire);
+  // 画像読み込み
+  var imgWrap=document.getElementById('sd-imgwrap');
+  if(s.fileId){
+    if(imgCache[s.fileId]){imgWrap.innerHTML='<img src="'+imgCache[s.fileId]+'" />';}
+    else{
+      imgWrap.innerHTML='<div class="img-loading"><div class="med-spinner"></div><span style="font-size:11px">読み込み中</span></div>';
+      (function(fid){
+        fetch(GAS_URL + '?action=image&fileId=' + encodeURIComponent(fid))
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            var url = d.data || '';
+            if(url) imgCache[fid] = url;
+            imgWrap.innerHTML = url ? '<img src="'+url+'" />' : '<div class="detail-img-ph">画像準備中</div>';
+          })
+          .catch(function(){ imgWrap.innerHTML='<div class="detail-img-ph">画像準備中</div>'; });
+      })(s.fileId);
+    }
+  } else{imgWrap.innerHTML='<div class="detail-img-ph">画像準備中</div>';}
+  showScreen('sake-detail');
+}
+
+function normalizeRice(rice){
+  if(!rice)return null;
+  if(rice.indexOf('山田錦')!==-1)return'山田錦';
+  if(rice.indexOf('愛山')!==-1)return'愛山';
+  if(rice.indexOf('雄山錦')!==-1)return'雄山錦';
+  if(rice.indexOf('雄町')!==-1)return'雄町';
+  if(rice.indexOf('八反錦')!==-1)return'八反錦';
+  if(rice.indexOf('出羽燦々')!==-1)return'出羽燦々';
+  if(rice.indexOf('ひだほまれ')!==-1)return'ひだほまれ';
+  if(rice.indexOf('ひとごこち')!==-1)return'ひとごこち';
+  if(rice.indexOf('山恵錦')!==-1)return'山恵錦';
+  if(rice.indexOf('朝日米')!==-1)return'朝日米';
+  if(rice.indexOf('五百万石')!==-1)return'五百万石';
+  return null;
+}
+function matchesRice(s,riceLabel){
+  return(s.rice||'').indexOf(riceLabel)!==-1;
+}
+function normalizeRegion(region){
+  if(!region)return'その他';
+  if(region.indexOf('兵庫')!==-1)return'兵庫';if(region.indexOf('広島')!==-1)return'広島';
+  if(region.indexOf('石川')!==-1)return'石川';if(region.indexOf('岐阜')!==-1)return'岐阜';
+  if(region.indexOf('大阪')!==-1)return'大阪';if(region.indexOf('山形')!==-1)return'山形';
+  if(region.indexOf('奈良')!==-1)return'奈良';return'その他';
+}
+function normalizeSakeType(type){
+  if(!type)return'';
+  if(type.indexOf('純米大吟醸')!==-1)return'純米大吟醸';if(type.indexOf('純米吟醸')!==-1)return'純米吟醸';
+  if(type.indexOf('特別純米')!==-1)return'特別純米';if(type.indexOf('純米')!==-1)return'純米';
+  if(type.indexOf('大吟醸')!==-1)return'大吟醸';if(type.indexOf('吟醸')!==-1)return'吟醸';
+  if(type.indexOf('本醸造')!==-1)return'本醸造';return type;
+}
+function matchesTaste(s,taste){
+  var pool=(s.hitokoto||'')+' '+(s.displayType||'')+' '+(s.tag1||'')+' '+(s.tag2||'');
+  if(taste==='フルーティ')  return(Number(s.aroma)>=4)||pool.indexOf('フルーティ')!==-1||pool.indexOf('華やか')!==-1||pool.indexOf('薫酒')!==-1;
+  if(taste==='すっきり')    return((Number(s.kire)>=4)&&(Number(s.umami)<=3))||pool.indexOf('すっきり')!==-1||pool.indexOf('爽酒')!==-1||pool.indexOf('軽快')!==-1;
+  if(taste==='旨みしっかり')return(Number(s.umami)>=4)||pool.indexOf('旨み')!==-1||pool.indexOf('しっかり')!==-1||pool.indexOf('醇酒')!==-1;
+  if(taste==='やさしい甘み')return(Number(s.dry)<=2)||pool.indexOf('甘み')!==-1||pool.indexOf('やさしい')!==-1||pool.indexOf('まろやか')!==-1;
+  return false;
+}
+function matchesDetail(s,detail){
+  // v40：専用フラグ列を優先参照
+  if(detail==='無濾過') return truthyFlag(s.murokaFlag);
+  if(detail==='生酒')   return s.namaKubun==='生酒'||s.namaKubun==='生貯蔵酒';
+  if(detail==='原酒')   return truthyFlag(s.genshuFlag);
+  if(detail==='要冷蔵') return truthyFlag(s.coldFlag);
+  return false;
+}
+function truthyFlag(v){
+  if(v===null||v===undefined)return false;
+  var s=String(v).trim().toUpperCase();
+  return!(s===''||s==='0'||s==='FALSE'||s==='OFF'||s==='NO'||s==='×'||s==='-');
+}
+function escText(v){
+  if(v===null||v===undefined)return'';
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escAttr(v){return escText(v);}
+function esc(v){
+  if(v===null||v===undefined)return'';
+  return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+function escHtmlId(v){
+  if(v===null||v===undefined)return'';
+  return String(v).replace(/[^a-zA-Z0-9\-_:.]/g,'_');
+}
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>廣岡商店</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Noto+Serif+JP:wght@300;400&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#1a1108;
+  --cream:#f7f3ec;
+  --gold:#b8965a;
+  --gold-light:#e8d5a8;
+  --sake:#8b3a2a;
+  --sake-light:#e8c4a8;
+  --wine:#4a1942;
+  --muted:#8a7f6e;
+}
+body{
+  font-family:'Noto Serif JP',serif;
+  background:var(--cream);
+  color:var(--ink);
+  min-height:100vh;
+  max-width:480px;
+  margin:0 auto;
+  overflow-x:hidden;
+}
+
+/* ===== TOP ===== */
+#screen-top{display:block}
+.top-wrap{min-height:100vh;display:flex;flex-direction:column}
+.top-hero{position:relative;padding:3.5rem 1.5rem 2rem;background:var(--ink);overflow:hidden}
+.top-hero::before{content:'';position:absolute;inset:0;background:
+  radial-gradient(ellipse 60% 40% at 80% 20%, rgba(184,150,90,.18) 0%, transparent 70%),
+  radial-gradient(ellipse 40% 60% at 20% 80%, rgba(74,25,66,.4) 0%, transparent 70%)}
+.top-hero::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.6}
+.store-en{font-family:'Cormorant Garamond',serif;font-size:11px;font-weight:300;letter-spacing:.35em;color:var(--gold);opacity:.8;margin-bottom:.75rem;position:relative}
+.store-name{font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:var(--cream);line-height:1;letter-spacing:.05em;margin-bottom:.35rem;position:relative}
+.store-name span{font-style:italic;color:var(--gold-light)}
+.store-jp{font-size:13px;font-weight:300;color:rgba(247,243,236,.5);letter-spacing:.2em;margin-bottom:1.75rem;position:relative}
+.hero-tagline{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:300;font-style:italic;color:rgba(232,213,168,.7);letter-spacing:.05em;position:relative;padding-left:1rem;border-left:1px solid rgba(184,150,90,.4)}
+.category-label{padding:1.5rem 1.5rem .75rem;font-size:10px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase}
+.category-cards{padding:0 1.25rem 2rem;display:flex;flex-direction:column;gap:12px;flex:1}
+.cat-card{position:relative;border-radius:2px;overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cat-card::before{content:'';position:absolute;inset:0;border:1px solid transparent;border-radius:2px;transition:border-color .3s;z-index:2;pointer-events:none}
+.cat-card:active::before{border-color:var(--gold)}
+.cat-bg{height:160px;position:relative;overflow:hidden}
+.cat-wine .cat-bg{background:linear-gradient(135deg,#2a0d24 0%,#4a1942 40%,#6b2d5a 70%,#3d1535 100%)}
+.cat-sake .cat-bg{background:linear-gradient(135deg,#1a0a05 0%,#3d1a0e 40%,#6b3020 70%,#2e1208 100%)}
+.cat-bg-pattern{position:absolute;inset:0;opacity:.15;background-image:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,.03) 20px,rgba(255,255,255,.03) 21px)}
+.cat-ornament{position:absolute;font-family:'Cormorant Garamond',serif;font-size:100px;font-weight:300;font-style:italic;color:rgba(255,255,255,.06);bottom:-20px;right:-10px;line-height:1;pointer-events:none;user-select:none}
+.cat-content{position:absolute;inset:0;padding:1.5rem;display:flex;flex-direction:column;justify-content:flex-end;z-index:1}
+.cat-content::before{content:'';position:absolute;bottom:0;left:0;right:0;height:70%;background:linear-gradient(to top,rgba(0,0,0,.5) 0%,transparent 100%)}
+.cat-en{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:.3em;color:var(--gold);opacity:.9;margin-bottom:.4rem;position:relative}
+.cat-title{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;color:white;line-height:1;letter-spacing:.05em;position:relative}
+.cat-sub{font-size:11px;font-weight:300;color:rgba(255,255,255,.6);margin-top:.4rem;letter-spacing:.1em;position:relative}
+.cat-footer{padding:.875rem 1.25rem;background:var(--ink);display:flex;justify-content:space-between;align-items:center}
+.cat-wine .cat-footer{background:#1e0a1a}
+.cat-sake .cat-footer{background:#150602}
+.cat-count{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--gold-light)}
+.cat-arrow{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--gold);opacity:.8}
+.cat-badge{font-size:9px;padding:3px 10px;border-radius:20px;letter-spacing:.15em;background:rgba(184,150,90,.15);color:var(--gold);border:1px solid rgba(184,150,90,.3)}
+.top-footer{padding:1.5rem;text-align:center;border-top:1px solid rgba(184,150,90,.15);margin-top:.5rem}
+.top-footer p{font-family:'Cormorant Garamond',serif;font-size:11px;font-style:italic;color:var(--muted);letter-spacing:.05em}
+.cat-card{animation:fadeUp .6s ease both}
+.cat-card:nth-child(2){animation-delay:.1s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== 共通 ===== */
+.screen{display:none}
+.header{background:var(--ink);color:var(--cream);padding:.875rem 1.25rem;position:sticky;top:0;z-index:100;border-bottom:1px solid rgba(184,150,90,.2)}
+.header-inner{display:flex;align-items:center;gap:12px}
+.back-btn{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--gold);cursor:pointer;padding:4px 8px 4px 0;-webkit-tap-highlight-color:transparent}
+.header-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;letter-spacing:.05em;color:var(--cream)}
+.header-sub{font-size:10px;color:rgba(232,213,168,.5);letter-spacing:.15em;margin-top:1px}
+#screen-loading{display:flex;align-items:center;justify-content:center;min-height:60vh;flex-direction:column;gap:12px;background:var(--cream)}
+.spinner{width:28px;height:28px;border:1.5px solid var(--gold-light);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:12px;color:var(--muted);letter-spacing:.15em}
+
+.search-body{padding:1.25rem 1.25rem 2rem;background:var(--cream)}
+.s-section{margin-bottom:1.5rem}
+.s-title{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--muted);letter-spacing:.15em;margin-bottom:.625rem;padding-bottom:.4rem;border-bottom:1px solid rgba(184,150,90,.2)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{font-size:12px;padding:6px 14px;border-radius:1px;border:1px solid rgba(26,17,8,.2);background:white;color:var(--ink);cursor:pointer;letter-spacing:.05em;font-family:'Noto Serif JP',serif;transition:all .2s;-webkit-tap-highlight-color:transparent}
+.chip.on{background:var(--wine);color:var(--gold-light);border-color:var(--wine)}
+.search-btn{width:100%;padding:14px;background:var(--ink);color:var(--gold-light);border:1px solid rgba(184,150,90,.3);border-radius:1px;font-size:13px;letter-spacing:.2em;font-family:'Noto Serif JP',serif;cursor:pointer;margin-top:.5rem;transition:background .2s}
+.search-btn:active{background:#2a1a0a}
+
+.detail-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;padding:.5rem 0;margin-bottom:1rem;-webkit-tap-highlight-color:transparent}
+.detail-toggle-line{flex:1;height:1px;background:rgba(184,150,90,.25)}
+.detail-toggle-text{font-family:'Cormorant Garamond',serif;font-size:12px;font-style:italic;color:var(--gold);letter-spacing:.1em;white-space:nowrap}
+.detail-toggle-icon{font-size:14px;color:var(--gold);transition:transform .3s}
+.detail-toggle-icon.open{transform:rotate(180deg)}
+.detail-section{overflow:hidden;max-height:0;transition:max-height .4s ease}
+.detail-section.open{max-height:600px}
+
+.result-header{padding:.75rem 1.25rem;background:var(--ink);display:flex;align-items:center;justify-content:space-between}
+.result-count{font-size:12px;color:rgba(232,213,168,.7);letter-spacing:.1em}
+.result-count-num{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;color:var(--gold-light);margin-right:4px}
+.back-search-btn{font-size:11px;padding:4px 12px;border:1px solid rgba(184,150,90,.3);color:var(--gold);cursor:pointer;letter-spacing:.1em;background:transparent;-webkit-tap-highlight-color:transparent}
+.results{padding:.75rem 1.25rem;display:flex;flex-direction:column;gap:8px;background:var(--cream)}
+.no-result{text-align:center;padding:3rem 1rem;color:var(--muted);font-size:13px;line-height:1.8;letter-spacing:.05em}
+
+.r-card{background:white;border:1px solid rgba(26,17,8,.08);padding:12px;cursor:pointer;display:flex;gap:11px;align-items:flex-start;transition:border-color .2s;-webkit-tap-highlight-color:transparent}
+.r-card:active{border-color:var(--gold)}
+.r-thumb{width:52px;height:68px;background:var(--cream);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.r-thumb img{width:52px;height:68px;object-fit:contain}
+.r-thumb-ph{width:52px;height:68px;display:flex;align-items:center;justify-content:center}
+.mini-spinner{width:14px;height:14px;border:1.5px solid var(--gold-light);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite}
+.r-info{flex:1;min-width:0}
+.r-name{font-size:13px;color:var(--ink);line-height:1.45;margin-bottom:3px;letter-spacing:.02em}
+.r-tagline{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--muted);margin-bottom:6px}
+.r-meta{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:5px}
+.r-price{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--wine)}
+.r-badge{font-size:10px;padding:1px 6px;color:var(--muted);border:1px solid rgba(26,17,8,.12);letter-spacing:.05em}
+.r-shelf{font-size:10px;padding:1px 6px;color:var(--gold);border:1px solid rgba(184,150,90,.3);background:rgba(184,150,90,.06);letter-spacing:.05em}
+.r-tags{display:flex;flex-wrap:wrap;gap:4px}
+.r-tag{font-size:10px;padding:2px 7px;background:rgba(74,25,66,.06);color:var(--wine);letter-spacing:.03em}
+
+/* ★ 結果カード ミニバー（修正：CSSを明示） */
+.sake-mini-bars{margin-top:6px}
+.sake-mr{display:flex;align-items:center;gap:4px;margin:3px 0}
+.sake-ml{font-size:9px;color:var(--muted);width:20px;text-align:right;flex-shrink:0}
+.sake-mt{flex:1;height:4px;background:rgba(139,58,42,.12);border-radius:2px;overflow:hidden}
+.sake-mf{height:4px;border-radius:2px;background:var(--sake)}
+
+.detail-img-wrap{width:100%;height:220px;background:var(--ink);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.detail-img-wrap img{width:100%;height:220px;object-fit:contain}
+.detail-img-ph{font-size:12px;color:rgba(247,243,236,.3);letter-spacing:.15em}
+.img-loading{font-size:12px;color:rgba(247,243,236,.4);display:flex;flex-direction:column;align-items:center;gap:8px}
+.med-spinner{width:22px;height:22px;border:1.5px solid rgba(184,150,90,.3);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite}
+.detail-body{padding:1.25rem 1.25rem 2.5rem;background:var(--cream)}
+.detail-header-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.type-badge{font-size:10px;padding:3px 10px;background:rgba(74,25,66,.08);color:var(--wine);border:1px solid rgba(74,25,66,.2);letter-spacing:.1em}
+.shelf-badge{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--gold);padding:2px 10px;border:1px solid rgba(184,150,90,.3);letter-spacing:.1em}
+.detail-name{font-size:15px;line-height:1.55;margin-bottom:4px;color:var(--ink);letter-spacing:.03em}
+.detail-origin{font-size:11px;color:var(--muted);margin-bottom:1rem;letter-spacing:.1em}
+.tagline-bar{border-left:2px solid var(--gold);padding:.5rem 0 .5rem 1rem;margin-bottom:1rem;background:linear-gradient(90deg,rgba(184,150,90,.05) 0%,transparent 100%)}
+.tagline-text{font-family:'Cormorant Garamond',serif;font-size:17px;font-style:italic;font-weight:300;color:var(--ink);line-height:1.45;letter-spacing:.02em}
+.detail-price{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:var(--wine);margin-bottom:1rem;letter-spacing:.02em}
+.detail-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem}
+.detail-tag{font-size:11px;padding:4px 12px;background:rgba(74,25,66,.06);color:var(--wine);border:1px solid rgba(74,25,66,.15);letter-spacing:.05em}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem}
+.info-card{background:white;border:1px solid rgba(26,17,8,.07);padding:10px 12px}
+.info-label{font-size:10px;color:var(--muted);margin-bottom:3px;letter-spacing:.15em}
+.info-val{font-size:13px;color:var(--ink);line-height:1.45}
+.person-box{background:linear-gradient(135deg,rgba(184,150,90,.08),rgba(184,150,90,.04));border:1px solid rgba(184,150,90,.25);padding:10px 14px;margin-bottom:1rem}
+.person-label{font-size:10px;color:var(--gold);margin-bottom:3px;letter-spacing:.2em}
+.person-val{font-size:13px;color:var(--ink);line-height:1.5}
+.detail-text{font-size:13px;color:var(--muted);line-height:1.9;background:white;border:1px solid rgba(26,17,8,.07);padding:1rem;letter-spacing:.03em}
+
+/* ===== 日本酒 ===== */
+.sake-chip.on{background:var(--sake);color:var(--sake-light);border-color:var(--sake)}
+.sake-search-btn{width:100%;padding:14px;background:var(--sake);color:var(--sake-light);border:1px solid rgba(139,58,42,.4);border-radius:1px;font-size:13px;letter-spacing:.2em;font-family:'Noto Serif JP',serif;cursor:pointer;margin-top:.5rem}
+.sake-search-btn:active{background:#6b2d1e}
+.sake-r-price{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--sake)}
+.sake-r-tag{font-size:10px;padding:2px 7px;background:rgba(139,58,42,.06);color:var(--sake);letter-spacing:.03em}
+.sake-type-badge{font-size:10px;padding:3px 10px;background:rgba(139,58,42,.08);color:var(--sake);border:1px solid rgba(139,58,42,.2);letter-spacing:.1em}
+.sake-detail-price{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:var(--sake);margin-bottom:.75rem;letter-spacing:.02em}
+.sake-detail-tag{font-size:11px;padding:4px 12px;background:rgba(139,58,42,.06);color:var(--sake);border:1px solid rgba(139,58,42,.15);letter-spacing:.05em}
+.sake-hitokoto{border-left:2px solid var(--sake);padding:.5rem 0 .5rem 1rem;margin-bottom:1rem;background:linear-gradient(90deg,rgba(139,58,42,.05) 0%,transparent 100%)}
+.sake-hitokoto-text{font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;font-weight:300;color:var(--ink);line-height:1.5;letter-spacing:.02em}
+
+/* ★ 棒グラフ（詳細画面） */
+.sake-bars-wrap{background:white;border:1px solid rgba(139,58,42,.12);padding:14px 16px;margin:12px 0}
+.sake-bars-title{font-size:10px;color:var(--muted);letter-spacing:.2em;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(139,58,42,.12)}
+.sake-bar-row{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}
+.sake-bar-row:last-child{margin-bottom:0}
+.sake-bar-axis{font-family:'Noto Serif JP',serif;font-size:11px;color:var(--ink);letter-spacing:.04em}
+.sake-bar-track-wrap{display:flex;align-items:center;gap:6px}
+.sake-bar-end{font-size:9px;color:var(--muted);white-space:nowrap;flex-shrink:0;letter-spacing:.02em}
+.sake-bar-end.left{width:42px;text-align:right}
+.sake-bar-end.right{width:42px;text-align:left}
+.sake-bar-track{flex:1;height:8px;background:rgba(139,58,42,.1);border-radius:4px;overflow:hidden}
+.sake-bar-fill{height:100%;border-radius:4px;background:linear-gradient(to right,#a05040,#c06040);transition:width .4s ease}
+
+/* サムネイル（日本酒結果カード） */
+.sake-r-thumb{width:52px;height:68px;background:var(--cream);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.sake-r-thumb img{width:52px;height:68px;object-fit:contain}
+.sake-r-thumb-ph{width:52px;height:68px;display:flex;align-items:center;justify-content:center}
+
+/* 日本酒詳細 画像エリア */
+.sake-detail-img-wrap{width:100%;height:220px;background:var(--ink);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.sake-detail-img-wrap img{width:100%;height:220px;object-fit:contain}
+
+.sake-note{font-size:11px;color:var(--muted);line-height:1.7;background:rgba(139,58,42,.03);border:1px solid rgba(139,58,42,.12);padding:.75rem .9rem;margin-bottom:1rem}
+.sake-credit{font-size:9px;color:rgba(138,127,110,.5);text-align:right;letter-spacing:.1em;margin-top:4px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<div id="screen-loading" style="display:none">
+  <div class="spinner"></div>
+  <div class="loading-text">読み込み中</div>
+</div>
+
+<div id="screen-top">
+  <div class="top-wrap">
+    <div class="top-hero">
+      <div class="store-en">HIROKA SHOTEN — KOBE HANAKUMA</div>
+      <div class="store-name">廣岡<span>商店</span></div>
+      <div class="store-jp">神戸市中央区下山手通</div>
+      <div class="hero-tagline">選ぶ喜びを、あなたの手に。</div>
+    </div>
+    <div class="category-label">— カテゴリーをお選びください</div>
+    <div class="category-cards">
+      <div class="cat-card cat-wine" onclick="startWine()">
+        <div class="cat-bg">
+          <div class="cat-bg-pattern"></div>
+          <div class="cat-ornament">Vin</div>
+          <div class="cat-content">
+            <div class="cat-en">WINE</div>
+            <div class="cat-title">ワイン</div>
+            <div class="cat-sub">フランス・イタリア・ドイツほか</div>
+          </div>
+        </div>
+        <div class="cat-footer">
+          <div class="cat-count">ワイン検索</div>
+          <div class="cat-badge">選べます</div>
+          <div class="cat-arrow">→</div>
+        </div>
+      </div>
+      <div class="cat-card cat-sake" onclick="startSake()">
+        <div class="cat-bg">
+          <div class="cat-bg-pattern"></div>
+          <div class="cat-ornament">酒</div>
+          <div class="cat-content">
+            <div class="cat-en">SAKE</div>
+            <div class="cat-title">日本酒</div>
+            <div class="cat-sub">兵庫・灘・丹波・全国各地の銘酒</div>
+          </div>
+        </div>
+        <div class="cat-footer">
+          <div class="cat-count">日本酒検索</div>
+          <div class="cat-badge">選べます</div>
+          <div class="cat-arrow">→</div>
+        </div>
+      </div>
+    </div>
+    <div class="top-footer"><p>Established 1960 — Kobe, Japan</p></div>
+  </div>
+</div>
+
+<!-- ワイン検索 -->
+<div id="screen-search" class="screen">
+  <div class="header">
+    <div class="header-inner">
+      <div class="back-btn" onclick="showTop()">←</div>
+      <div><div class="header-title">Wine</div><div class="header-sub">条件を選んでワインを探す</div></div>
+    </div>
+  </div>
+  <div class="search-body">
+    <div class="s-section">
+      <div class="s-title">Type — タイプ</div>
+      <div class="chips">
+        <div class="chip" data-g="type" data-v="赤" onclick="tog(this)">赤ワイン</div>
+        <div class="chip" data-g="type" data-v="白" onclick="tog(this)">白ワイン</div>
+        <div class="chip" data-g="type" data-v="スパークリング" onclick="tog(this)">泡</div>
+        <div class="chip" data-g="type" data-v="ロゼ" onclick="tog(this)">ロゼ</div>
+      </div>
+    </div>
+    <div class="s-section">
+      <div class="s-title">Origin — 産地</div>
+      <div class="chips">
+        <div class="chip" data-g="country" data-v="フランス" onclick="tog(this)">フランス</div>
+        <div class="chip" data-g="country" data-v="イタリア" onclick="tog(this)">イタリア</div>
+        <div class="chip" data-g="country" data-v="スペイン" onclick="tog(this)">スペイン</div>
+        <div class="chip" data-g="country" data-v="ドイツ" onclick="tog(this)">ドイツ</div>
+        <div class="chip" data-g="country" data-v="チリ" onclick="tog(this)">チリ</div>
+        <div class="chip" data-g="country" data-v="日本" onclick="tog(this)">日本</div>
+        <div class="chip" data-g="country" data-v="モルドバ" onclick="tog(this)">モルドバ</div>
+        <div class="chip" data-g="country" data-v="南アフリカ" onclick="tog(this)">南アフリカ</div>
+      </div>
+    </div>
+    <div class="s-section">
+      <div class="s-title">Budget — 予算</div>
+      <div class="chips">
+        <div class="chip" data-g="budget" data-v="1500" onclick="tog(this)">〜1,500円</div>
+        <div class="chip" data-g="budget" data-v="2500" onclick="tog(this)">〜2,500円</div>
+        <div class="chip" data-g="budget" data-v="4000" onclick="tog(this)">〜4,000円</div>
+        <div class="chip" data-g="budget" data-v="9999" onclick="tog(this)">4,000円〜</div>
+      </div>
+    </div>
+    <div class="s-section">
+      <div class="s-title">Scene — 料理・場面</div>
+      <div class="chips">
+        <div class="chip" data-g="scene" data-v="肉" onclick="tog(this)">肉料理</div>
+        <div class="chip" data-g="scene" data-v="魚" onclick="tog(this)">魚介</div>
+        <div class="chip" data-g="scene" data-v="鶏" onclick="tog(this)">鶏料理</div>
+        <div class="chip" data-g="scene" data-v="贈り物" onclick="tog(this)">贈り物</div>
+        <div class="chip" data-g="scene" data-v="記念日" onclick="tog(this)">記念日</div>
+        <div class="chip" data-g="scene" data-v="普段" onclick="tog(this)">普段使い</div>
+      </div>
+    </div>
+    <div class="detail-toggle" onclick="toggleDetail()">
+      <div class="detail-toggle-line"></div>
+      <div class="detail-toggle-text">詳細検索</div>
+      <div class="detail-toggle-icon" id="detail-icon">∨</div>
+      <div class="detail-toggle-line"></div>
+    </div>
+    <div class="detail-section" id="detail-section">
+      <div class="s-section">
+        <div class="s-title">Body — 味わいの重さ</div>
+        <div class="chips">
+          <div class="chip" data-g="body" data-v="軽め" onclick="tog(this)">軽め</div>
+          <div class="chip" data-g="body" data-v="ミディアム" onclick="tog(this)">ミディアム</div>
+          <div class="chip" data-g="body" data-v="しっかり" onclick="tog(this)">しっかり</div>
+        </div>
+      </div>
+      <div class="s-section">
+        <div class="s-title">Sweetness — 甘辛度</div>
+        <div class="chips">
+          <div class="chip" data-g="sweet" data-v="辛口" onclick="tog(this)">辛口</div>
+          <div class="chip" data-g="sweet" data-v="やや辛口" onclick="tog(this)">やや辛口</div>
+          <div class="chip" data-g="sweet" data-v="やや甘口" onclick="tog(this)">やや甘口</div>
+          <div class="chip" data-g="sweet" data-v="甘口" onclick="tog(this)">甘口</div>
+        </div>
+      </div>
+      <div class="s-section">
+        <div class="s-title">Flavor — 果実味の方向</div>
+        <div class="chips">
+          <div class="chip" data-g="fruit" data-v="果実味重視" onclick="tog(this)">果実味重視</div>
+          <div class="chip" data-g="fruit" data-v="バランス" onclick="tog(this)">バランス</div>
+          <div class="chip" data-g="fruit" data-v="すっきり辛口" onclick="tog(this)">すっきり辛口</div>
+        </div>
+      </div>
+    </div>
+    <button class="search-btn" onclick="runSearch()">— このワインを探す —</button>
+  </div>
+</div>
+
+<!-- ワイン結果 -->
+<div id="screen-results" class="screen">
+  <div class="header">
+    <div class="header-inner">
+      <div class="back-btn" onclick="showScreen('search')">←</div>
+      <div><div class="header-title">Results</div><div class="header-sub">検索結果</div></div>
+    </div>
+  </div>
+  <div class="result-header">
+    <div class="result-count" id="result-header"></div>
+    <div class="back-search-btn" onclick="showScreen('search')">条件を変える</div>
+  </div>
+  <div class="results" id="result-list"></div>
+</div>
+
+<!-- ワイン詳細 -->
+<div id="screen-detail" class="screen">
+  <div class="header">
+    <div class="header-inner">
+      <div class="back-btn" onclick="showScreen('results')">←</div>
+      <div><div class="header-title">Detail</div><div class="header-sub">ワイン詳細</div></div>
+    </div>
+  </div>
+  <div class="detail-img-wrap" id="d-imgwrap"><div class="detail-img-ph">画像準備中</div></div>
+  <div class="detail-body">
+    <div class="detail-header-row">
+      <div class="type-badge" id="d-type"></div>
+      <div class="shelf-badge" id="d-shelf"></div>
+    </div>
+    <div class="detail-name" id="d-name"></div>
+    <div class="detail-origin" id="d-origin"></div>
+    <div class="tagline-bar"><div class="tagline-text" id="d-tagline"></div></div>
+    <div class="detail-price" id="d-price"></div>
+    <div class="detail-tags" id="d-tags"></div>
+    <div class="info-grid">
+      <div class="info-card"><div class="info-label">合う料理</div><div class="info-val" id="d-food"></div></div>
+      <div class="info-card"><div class="info-label">飲む場面</div><div class="info-val" id="d-scene"></div></div>
+    </div>
+    <div class="person-box">
+      <div class="person-label">こんな方に</div>
+      <div class="person-val" id="d-person"></div>
+    </div>
+    <div class="detail-text" id="d-detail"></div>
+  </div>
+</div>
+
+<!-- 日本酒検索 -->
+<div id="screen-sake-search" class="screen">
+  <div class="header">
+    <div class="header-inner">
+      <div class="back-btn" onclick="showTop()">←</div>
+      <div><div class="header-title">Sake</div><div class="header-sub">迷ったら、飲みたい方向から選ぶ</div></div>
+    </div>
+  </div>
+  <div class="search-body">
+    <div class="sake-note">
+      日本酒が詳しくなくても大丈夫です。<br>
+      まずは <strong>予算・産地・味わい</strong> から選んでください。
+    </div>
+    <div class="s-section">
+      <div class="s-title">Budget — 予算</div>
+      <div class="chips">
+        <div class="chip sake-chip" data-g="sprice" data-v="1000" onclick="stog(this)">〜1,000円</div>
+        <div class="chip sake-chip" data-g="sprice" data-v="2000" onclick="stog(this)">〜2,000円</div>
+        <div class="chip sake-chip" data-g="sprice" data-v="3500" onclick="stog(this)">〜3,500円</div>
+        <div class="chip sake-chip" data-g="sprice" data-v="9999" onclick="stog(this)">3,500円〜</div>
+      </div>
+    </div>
+    <div class="s-section">
+      <div class="s-title">Origin — 産地</div>
+      <div class="chips" id="sake-region-chips"></div>
+    </div>
+    <div class="s-section">
+      <div class="s-title">Taste — 味わい</div>
+      <div class="chips">
+        <div class="chip sake-chip" data-g="staste" data-v="フルーティ" onclick="stog(this)">フルーティ</div>
+        <div class="chip sake-chip" data-g="staste" data-v="すっきり" onclick="stog(this)">すっきり</div>
+        <div class="chip sake-chip" data-g="staste" data-v="旨みしっかり" onclick="stog(this)">旨みしっかり</div>
+        <div class="chip sake-chip" data-g="staste" data-v="やさしい甘み" onclick="stog(this)">やさしい甘み</div>
+      </div>
+    </div>
+    <div class="s-section">
+      <div class="s-title">Type — 特定名称</div>
+      <div class="chips" id="sake-type-chips"></div>
+    </div>
+    <div class="detail-toggle" onclick="toggleSakeDetail()">
+      <div class="detail-toggle-line"></div>
+      <div class="detail-toggle-text">詳細条件</div>
+      <div class="detail-toggle-icon" id="sake-detail-icon">∨</div>
+      <div class="detail-toggle-line"></div>
+    </div>
+    <div class="detail-section" id="sake-detail-section">
+      <div class="s-section">
+        <div class="s-title">Detail — 製法・状態</div>
+        <div class="chips">
+          <div class="chip sake-chip" data-g="sdetail" data-v="無濾過" onclick="stog(this)">無濾過</div>
+          <div class="chip sake-chip" data-g="sdetail" data-v="生酒" onclick="stog(this)">生酒</div>
+          <div class="chip sake-chip" data-g="sdetail" data-v="原酒" onclick="stog(this)">原酒</div>
+          <div class="chip sake-chip" data-g="sdetail" data-v="要冷蔵" onclick="stog(this)">要冷蔵</div>
+        </div>
+      </div>
+      <div class="s-section">
+        <div class="s-title">Rice — 原料米</div>
+        <div class="chips" id="sake-rice-chips"></div>
+      </div>
+    </div>
+    <button class="sake-search-btn" onclick="runSakeSearch()">— この日本酒を探す —</button>
+  </div>
+</div>
+
+<!-- 日本酒結果 -->
+<div id="screen-sake-results" class="screen">
+  <div class="header">
+    <div class="header-inner">
+      <div class="back-btn" onclick="showScreen('sake-search')">←</div>
+      <div><div class="header-title">Results</div><div class="header-sub">検索結果</div></div>
+    </div>
+  </div>
+  <div class="result-header">
+    <div class="result-count" id="sake-result-header"></div>
+    <div class="back-search-btn" onclick="showScreen('sake-search')">条件を変える</div>
+  </div>
+  <div class="results" id="sake-result-list"></div>
+</div>
+
+<!-- 日本酒詳細 -->
+<div id="screen-sake-detail" class="screen">
+  <div class="header">
+    <div class="header-inner">
+      <div class="back-btn" onclick="showScreen('sake-results')">←</div>
+      <div><div class="header-title">Detail</div><div class="header-sub">日本酒詳細</div></div>
+    </div>
+  </div>
+  <div class="sake-detail-img-wrap" id="sd-imgwrap">
+    <div class="detail-img-ph">画像準備中</div>
+  </div>
+  <div class="detail-body" style="padding-top:1.5rem">
+    <div class="detail-header-row">
+      <div class="sake-type-badge" id="sd-type"></div>
+      <div class="shelf-badge" id="sd-shelf"></div>
+    </div>
+    <div class="detail-name" id="sd-name"></div>
+    <div class="detail-origin" id="sd-origin"></div>
+    <div class="sake-hitokoto">
+      <div class="sake-hitokoto-text" id="sd-hitokoto"></div>
+    </div>
+    <div class="sake-detail-price" id="sd-price"></div>
+    <div class="detail-tags" id="sd-tags"></div>
+
+    <!-- ★ 原料米を追加した詳細グリッド -->
+    <div class="info-grid" style="margin-bottom:1rem">
+      <div class="info-card"><div class="info-label">蔵元</div><div class="info-val" id="sd-brewery"></div></div>
+      <div class="info-card"><div class="info-label">容量</div><div class="info-val" id="sd-volume"></div></div>
+      <div class="info-card"><div class="info-label">原料米</div><div class="info-val" id="sd-rice"></div></div>
+      <div class="info-card"><div class="info-label">精米歩合</div><div class="info-val" id="sd-polish"></div></div>
+      <div class="info-card"><div class="info-label">アルコール度数</div><div class="info-val" id="sd-alcohol"></div></div>
+      <div class="info-card"><div class="info-label">飲み方・温度</div><div class="info-val" id="sd-temp"></div></div>
+    </div>
+
+    <!-- 棒グラフ -->
+    <div class="sake-bars-wrap">
+      <div class="sake-bars-title">TASTE — 味わい</div>
+      <div id="sd-bars"></div>
+      <div class="sake-credit">廣岡商店独自評価（1〜5段階）</div>
+    </div>
+
+    <div class="info-grid" style="margin-top:12px">
+      <div class="info-card"><div class="info-label">合う料理</div><div class="info-val" id="sd-ryori"></div></div>
+      <div class="info-card"><div class="info-label">向いている人</div><div class="info-val" id="sd-hito"></div></div>
+      <div class="info-card"><div class="info-label">日本酒度</div><div class="info-val" id="sd-nihonshudo"></div></div>
+      <div class="info-card"><div class="info-label">酸度</div><div class="info-val" id="sd-acidity"></div></div>
+    </div>
+
+    <!-- ★ 自由メモ → AIテイスティングノート -->
+    <div class="detail-text" id="sd-tasting" style="margin-top:1rem"></div>
+  </div>
+</div>
+
+<script>
+// ★ GAS API エンドポイント（このURLは変えない）
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbyg4JeUSHFQonIgvE9VWiPNaj2FlzBaalK5BDXtHtnEJRuT3bgVfu1JNxk5DSN6S2boJg/exec';
+
+var wines = [], sakes = [];
+var sel = {}, ssel = {};
+var imgCache = {};
+var detailOpen = false;
+var sakeDetailOpen = false;
+
+function showTop() {
+  ['search','results','detail','loading','sake-search','sake-results','sake-detail'].forEach(function(s){
+    var el = document.getElementById('screen-' + s);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('screen-top').style.display = 'block';
+  window.scrollTo(0,0);
+}
+function showScreen(name) {
+  ['search','results','detail','loading','sake-search','sake-results','sake-detail'].forEach(function(s){
+    var el = document.getElementById('screen-' + s);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('screen-top').style.display = 'none';
+  document.getElementById('screen-' + name).style.display = 'block';
+  window.scrollTo(0,0);
+}
+
+// ===== ワイン =====
+function startWine() {
+  document.getElementById('screen-top').style.display = 'none';
+  if (wines.length > 0) { showScreen('search'); return; }
+  document.getElementById('screen-loading').style.display = 'flex';
+  fetch(GAS_URL + '?action=wines')
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      wines = Array.isArray(json) ? json : [];
+      document.getElementById('screen-loading').style.display = 'none';
+      showScreen('search');
+    })
+    .catch(function(){
+      document.getElementById('screen-loading').innerHTML =
+        '<div style="padding:2rem;text-align:center;color:#8b3a2a;font-size:13px;">読み込みに失敗しました。</div>';
+    });
+}
+function toggleDetail() {
+  detailOpen = !detailOpen;
+  document.getElementById('detail-section').classList.toggle('open', detailOpen);
+  document.getElementById('detail-icon').classList.toggle('open', detailOpen);
+}
+function tog(el) {
+  var g=el.dataset.g, v=el.dataset.v;
+  if(!sel[g]) sel[g]={};
+  if(sel[g][v]){ delete sel[g][v]; el.classList.remove('on'); }
+  else{ sel[g][v]=true; el.classList.add('on'); }
+}
+function runSearch() {
+  var types=sel['type']?Object.keys(sel['type']):[];
+  var countries=sel['country']?Object.keys(sel['country']):[];
+  var budgets=sel['budget']?Object.keys(sel['budget']):[];
+  var scenes=sel['scene']?Object.keys(sel['scene']):[];
+  var bodies=sel['body']?Object.keys(sel['body']):[];
+  var sweets=sel['sweet']?Object.keys(sel['sweet']):[];
+  var fruits=sel['fruit']?Object.keys(sel['fruit']):[];
+  var results=wines.filter(function(w){
+    if(types.length&&!types.some(function(t){return(w.type||'').indexOf(t)!==-1;})) return false;
+    if(countries.length&&countries.indexOf(w.country)===-1) return false;
+    if(budgets.length&&!budgets.some(function(b){
+      var n=parseInt(b,10),p=w.priceNum||0;
+      if(n===1500) return p>0&&p<=1500; if(n===2500) return p>0&&p<=2500;
+      if(n===4000) return p>0&&p<=4000; if(n===9999) return p>4000; return true;
+    })) return false;
+    if(scenes.length&&!scenes.some(function(s){
+      return(w.food||'').indexOf(s)!==-1||(w.scene||'').indexOf(s)!==-1||
+             (w.tags||[]).some(function(t){return t.indexOf(s)!==-1;});
+    })) return false;
+    if(bodies.length&&bodies.indexOf(w.body||'')===-1) return false;
+    if(sweets.length&&sweets.indexOf(w.sweet||'')===-1) return false;
+    if(fruits.length&&fruits.indexOf(w.fruit||'')===-1) return false;
+    return true;
+  });
+  document.getElementById('result-header').innerHTML='<span class="result-count-num">'+results.length+'</span> 件見つかりました';
+  var el=document.getElementById('result-list');
+  if(!results.length){
+    el.innerHTML='<div class="no-result">条件に合うワインが見つかりませんでした。<br>条件を変えてお試しください。</div>';
+  } else {
+    el.innerHTML=results.map(function(w){
+      var tg=(w.tags||[]).map(function(t){return'<span class="r-tag">'+escText(t)+'</span>';}).join('');
+      var sh=w.shelf?'<span class="r-shelf">'+escText(w.shelf)+'棚</span>':'';
+      return'<div class="r-card" onclick="showWineDetail(\''+esc(w.id)+'\')">'
+        +'<div class="r-thumb" id="thumb-'+escHtmlId(w.id)+'"><div class="r-thumb-ph"><div class="mini-spinner"></div></div></div>'
+        +'<div class="r-info"><div class="r-name">'+escText(w.name)+'</div>'
+        +'<div class="r-tagline">'+escText(w.tagline||'')+'</div>'
+        +'<div class="r-meta"><span class="r-price">'+escText(w.price||'')+'</span>'
+        +'<span class="r-badge">'+escText(w.country||'')+'</span>'
+        +'<span class="r-badge">'+escText(w.type||'')+'</span>'+sh+'</div>'
+        +'<div class="r-tags">'+tg+'</div></div></div>';
+    }).join('');
+    results.forEach(function(w){
+      var thumbId='thumb-'+escHtmlId(w.id);
+      if(!w.fileId){var t=document.getElementById(thumbId);if(t)t.innerHTML='';return;}
+      if(imgCache[w.fileId]){var t2=document.getElementById(thumbId);if(t2)t2.innerHTML='<img src="'+imgCache[w.fileId]+'" />';return;}
+      (function(fid, tid){
+        fetch(GAS_URL + '?action=image&fileId=' + encodeURIComponent(fid))
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            var url = d.data || '';
+            if(url) imgCache[fid] = url;
+            var t = document.getElementById(tid);
+            if(t) t.innerHTML = url ? '<img src="'+url+'" />' : '';
+          })
+          .catch(function(){ var t=document.getElementById(tid); if(t) t.innerHTML=''; });
+      })(w.fileId, thumbId);
+    });
+  }
+  showScreen('results');
+}
+function showWineDetail(id){
+  var w=null;for(var i=0;i<wines.length;i++){if(wines[i].id===id){w=wines[i];break;}}if(!w)return;
+  document.getElementById('d-type').textContent=w.type||'—';
+  document.getElementById('d-shelf').textContent=w.shelf?w.shelf+'棚':'';
+  document.getElementById('d-name').textContent=w.name||'—';
+  document.getElementById('d-origin').textContent=w.origin||'—';
+  document.getElementById('d-tagline').textContent=w.tagline||'—';
+  document.getElementById('d-price').textContent=w.price||'—';
+  document.getElementById('d-food').textContent=w.food||'—';
+  document.getElementById('d-scene').textContent=w.scene||'—';
+  document.getElementById('d-person').textContent=w.person||'—';
+  document.getElementById('d-detail').textContent=w.detail||'—';
+  document.getElementById('d-tags').innerHTML=(w.tags||[]).map(function(t){return'<span class="detail-tag">'+escText(t)+'</span>';}).join('');
+  var imgWrap=document.getElementById('d-imgwrap');
+  if(w.fileId){
+    if(imgCache[w.fileId]){imgWrap.innerHTML='<img src="'+imgCache[w.fileId]+'" />';}
+    else{
+      imgWrap.innerHTML='<div class="img-loading"><div class="med-spinner"></div><span style="font-size:11px">読み込み中</span></div>';
+      (function(fid){
+        fetch(GAS_URL + '?action=image&fileId=' + encodeURIComponent(fid))
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            var url = d.data || '';
+            if(url) imgCache[fid] = url;
+            imgWrap.innerHTML = url ? '<img src="'+url+'" />' : '<div class="detail-img-ph">画像準備中</div>';
+          })
+          .catch(function(){ imgWrap.innerHTML='<div class="detail-img-ph">画像準備中</div>'; });
+      })(w.fileId);
+    }
+  } else{imgWrap.innerHTML='<div class="detail-img-ph">画像準備中</div>';}
+  showScreen('detail');
+}
+
+// ===== 日本酒 =====
+function startSake() {
+  document.getElementById('screen-top').style.display = 'none';
+  if (sakes.length > 0) { showScreen('sake-search'); return; }
+  document.getElementById('screen-loading').style.display = 'flex';
+  fetch(GAS_URL + '?action=sakes')
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      sakes = Array.isArray(json) ? json : [];
+      document.getElementById('screen-loading').style.display = 'none';
+      buildSakeFilters();
+      showScreen('sake-search');
+    })
+    .catch(function(){
+      document.getElementById('screen-loading').innerHTML =
+        '<div style="padding:2rem;text-align:center;color:#8b3a2a;font-size:13px;">読み込みに失敗しました。</div>';
+    });
+}
+function toggleSakeDetail(){
+  sakeDetailOpen=!sakeDetailOpen;
+  document.getElementById('sake-detail-section').classList.toggle('open',sakeDetailOpen);
+  document.getElementById('sake-detail-icon').classList.toggle('open',sakeDetailOpen);
+}
+function stog(el){
+  var g=el.dataset.g,v=el.dataset.v;
+  if(!ssel[g])ssel[g]={};
+  if(ssel[g][v]){delete ssel[g][v];el.classList.remove('on');}
+  else{ssel[g][v]=true;el.classList.add('on');}
+}
+function buildSakeFilters(){buildSakeRegionChips();buildSakeTypeChips();buildSakeRiceChips();}
+function buildSakeRegionChips(){
+  var prio=['兵庫','広島','石川','岐阜','大阪','山形','奈良','その他'];
+  var found={},regions=[];
+  sakes.forEach(function(s){var r=normalizeRegion(s.region||'');if(!found[r]){found[r]=true;regions.push(r);}});
+  regions.sort(function(a,b){var ai=prio.indexOf(a),bi=prio.indexOf(b);if(ai!==-1&&bi!==-1)return ai-bi;if(ai!==-1)return -1;if(bi!==-1)return 1;return a.localeCompare(b,'ja');});
+  document.getElementById('sake-region-chips').innerHTML=regions.map(function(r){
+    return'<div class="chip sake-chip" data-g="sregion" data-v="'+escAttr(r)+'" onclick="stog(this)">'+escText(r)+'</div>';
+  }).join('');
+}
+function buildSakeTypeChips(){
+  var prio=['純米','純米吟醸','純米大吟醸','本醸造','吟醸','大吟醸','特別純米'];
+  var found={},types=[];
+  var EXCLUDE_TYPES=['生貯蔵酒'];
+  sakes.forEach(function(s){var t=normalizeSakeType(s.type||'');if(t&&!found[t]&&EXCLUDE_TYPES.indexOf(t)===-1){found[t]=true;types.push(t);}});
+  types.sort(function(a,b){var ai=prio.indexOf(a),bi=prio.indexOf(b);if(ai!==-1&&bi!==-1)return ai-bi;if(ai!==-1)return -1;if(bi!==-1)return 1;return a.localeCompare(b,'ja');});
+  document.getElementById('sake-type-chips').innerHTML=types.map(function(t){
+    return'<div class="chip sake-chip" data-g="stype" data-v="'+escAttr(t)+'" onclick="stog(this)">'+escText(t)+'</div>';
+  }).join('');
+}
+function buildSakeRiceChips(){
   var prio=['山田錦','愛山','雄山錦','雄町','八反錦','出羽燦々','ひだほまれ','ひとごこち','山恵錦','朝日米'];
   var found={},rices=[];
   sakes.forEach(function(s){
