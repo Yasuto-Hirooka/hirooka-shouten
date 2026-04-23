@@ -711,7 +711,7 @@ function buildSakeTypeChips(){
   }).join('');
 }
 function buildSakeRiceChips(){
-  var prio=['山田錦','五百万石','愛山','雄山錦','雄町','八反錦','出羽燦々','ひだほまれ','ひとごこち','山恵錦','朝日米'];
+  var prio=['山田錦','五百万石','愛山','雄山錦','雄町','八反錦','フクノハナ','出羽燦々','ひだほまれ','ひとごこち','山恵錦','朝日米'];
   var found={},rices=[];
   sakes.forEach(function(s){
     var r=normalizeRice(s.rice||'');
@@ -891,6 +891,7 @@ function normalizeRice(rice){
   if(rice.indexOf('山恵錦')!==-1)return'山恵錦';
   if(rice.indexOf('朝日米')!==-1)return'朝日米';
   if(rice.indexOf('五百万石')!==-1)return'五百万石';
+  if(rice.indexOf('フクノハナ')!==-1)return'フクノハナ';
   return null;
 }
 function matchesRice(s,riceLabel){
