@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>家飲みレシピ投稿 | 廣岡商店</title>
+    <meta name="description" content="廣岡商店の家飲み研究ラボへ、家で楽しんでいる飲み方を投稿するページです。" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header" id="siteHeader">
+      <div class="nav-wrap">
+        <a class="brand" href="index.html" aria-label="廣岡商店トップへ">
+          <span class="brand__jp">廣岡商店</span>
+          <span class="brand__en">Hiroka Shoten / Kobe Hanakuma</span>
+        </a>
+        <nav class="nav-links" aria-label="主要メニュー">
+          <a href="index.html#first-visit">はじめての方へ</a>
+          <a href="index.html#search">商品検索</a>
+          <a href="index.html#wine-sake">ワイン・日本酒</a>
+          <a href="index.html#gift">贈答対応</a>
+          <a href="index.html#access">店舗案内</a>
+          <a class="btn btn-primary btn-small" href="https://script.google.com/macros/s/AKfycbyg4JeUSHFQonIgvE9VWiPNaj2FlzBaalK5BDXtHtnEJRuT3bgVfu1JNxk5DSN6S2boJg/exec">商品検索</a>
+        </nav>
+        <button class="menu-toggle" id="menuToggle" type="button" aria-label="メニューを開く" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <nav class="mobile-nav" id="mobileNav" aria-label="モバイルメニュー">
+      <a href="index.html#first-visit">はじめての方へ</a>
+      <a href="index.html#search">商品検索</a>
+      <a href="index.html#wine-sake">ワイン・日本酒</a>
+      <a href="index.html#gift">贈答対応</a>
+      <a href="index.html#access">店舗案内</a>
+      <a class="btn btn-primary" href="https://script.google.com/macros/s/AKfycbyg4JeUSHFQonIgvE9VWiPNaj2FlzBaalK5BDXtHtnEJRuT3bgVfu1JNxk5DSN6S2boJg/exec">商品検索を開く</a>
+    </nav>
+
+    <main>
+      <section class="sub-hero">
+        <div class="container">
+          <p class="eyebrow">Submit Recipe</p>
+          <h1>あなたの家飲みレシピを教えてください。</h1>
+          <p class="lead">
+            いつもの割り方、合わせるおつまみ、少しだけ工夫していること。
+            文字で送っていただければ、お店で確認して掲載候補として扱います。
+          </p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container form-layout">
+          <form class="recipe-form" id="recipeForm" method="post" data-endpoint="https://script.google.com/macros/s/AKfycbyg4JeUSHFQonIgvE9VWiPNaj2FlzBaalK5BDXtHtnEJRuT3bgVfu1JNxk5DSN6S2boJg/exec">
+            <input type="hidden" name="action" value="recipe_submit" />
+            <input class="form-honeypot" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />
+            <div class="form-row">
+              <label for="nickname">ニックネーム</label>
+              <input id="nickname" name="nickname" type="text" placeholder="例：花隈のハイボール好き" required />
+            </div>
+            <div class="form-row">
+              <label for="drink">使ったお酒</label>
+              <input id="drink" name="drink" type="text" placeholder="例：ジン、ウイスキー、日本酒など" required />
+            </div>
+            <div class="form-row">
+              <label for="mixer">割材・材料</label>
+              <input id="mixer" name="mixer" type="text" placeholder="例：炭酸、トニック、すだち、氷" />
+            </div>
+            <div class="form-row">
+              <label for="recipe">作り方</label>
+              <textarea id="recipe" name="recipe" rows="5" placeholder="例：氷を多めに入れて、ジンを注ぎ、トニックをゆっくり加えます。" required></textarea>
+            </div>
+            <div class="form-row">
+              <label for="comment">味の感想・合うおつまみ</label>
+              <textarea id="comment" name="comment" rows="4" placeholder="例：さっぱりして、焼き魚や塩味のおつまみに合いました。"></textarea>
+            </div>
+            <div class="form-row">
+              <label for="contact">連絡先 任意</label>
+              <input id="contact" name="contact" type="text" placeholder="掲載確認が必要な場合のメール・SNS等" />
+            </div>
+            <label class="check-row">
+              <input name="confirmAge" type="checkbox" required />
+              <span>20歳以上です。投稿内容が確認後に掲載される場合があることに同意します。</span>
+            </label>
+            <button class="btn btn-primary" type="submit">投稿する</button>
+            <p class="form-note">
+              投稿内容はGoogleスプレッドシートへ送信されます。確認後、公開可のものだけ掲載します。
+            </p>
+          </form>
+          <aside class="form-side">
+            <h2>掲載までの流れ</h2>
+            <ol>
+              <li>フォームから文字で投稿</li>
+              <li>Googleスプレッドシートに受付</li>
+              <li>お店で内容を確認</li>
+              <li>公開可のものだけHPに掲載</li>
+            </ol>
+            <div class="notice">
+              未成年飲酒、飲み過ぎを促す内容、危険な飲み方、運転前後の飲酒につながる内容は掲載できません。
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div>
+          <strong>有限会社 廣岡商店</strong>
+          <span>投稿内容は確認後、公開可のものだけ掲載します。</span>
+        </div>
+        <div class="footer-links">
+          <a href="recipes.html">レシピ一覧へ</a>
+          <span>お酒は20歳になってから。飲酒運転は法律で禁止されています。</span>
+        </div>
+      </div>
+    </footer>
+    <script src="site.js"></script>
+  </body>
+</html>
