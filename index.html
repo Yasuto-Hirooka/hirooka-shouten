@@ -19,6 +19,7 @@
         </a>
         <nav class="nav-links" aria-label="主要メニュー">
           <a href="#first-visit" data-nav>はじめての方へ</a>
+          <a href="#layout" data-nav>店内レイアウト</a>
           <a href="#search" data-nav>商品検索</a>
           <a href="#wine-sake" data-nav>ワイン・日本酒</a>
           <a href="#gift" data-nav>贈答対応</a>
@@ -33,6 +34,7 @@
 
     <nav class="mobile-nav" id="mobileNav" aria-label="モバイルメニュー">
       <a href="#first-visit">はじめての方へ</a>
+      <a href="#layout">店内レイアウト</a>
       <a href="#search">商品検索</a>
       <a href="#wine-sake">ワイン・日本酒</a>
       <a href="#gift">贈答対応</a>
@@ -144,6 +146,48 @@
               <p>相手に合わせた一本と包装を。</p>
             </article>
           </div>
+        </div>
+      </section>
+
+      <section class="section layout-guide" id="layout">
+        <div class="container layout-panel">
+          <div class="layout-copy reveal">
+            <p class="eyebrow">Store Layout</p>
+            <h2>入口から見た店内を、先にご案内します。</h2>
+            <p>
+              初めての酒屋は、どこに何があるか分からないだけで少し入りにくいものです。
+              冷蔵庫、中央棚、家飲み研究ラボ、レジの位置を一枚にまとめました。
+            </p>
+            <div class="layout-points" aria-label="店内レイアウトの見どころ">
+              <article>
+                <strong>冷蔵庫</strong>
+                <span>生酒・季節酒、日常の日本酒、ビールなど。</span>
+              </article>
+              <article>
+                <strong>中央棚</strong>
+                <span>日常のワイン、少し良い赤、贈答向きの一本。</span>
+              </article>
+              <article>
+                <strong>家飲み研究ラボ</strong>
+                <span>家での飲み方を考えるための比較体験スペース。</span>
+              </article>
+              <article>
+                <strong>レジ</strong>
+                <span>迷ったら、ここで気軽にご相談ください。</span>
+              </article>
+            </div>
+            <div class="layout-actions">
+              <a class="btn btn-primary" href="#search">棚番を見ながら商品を探す</a>
+              <a class="btn btn-outline" href="#access">店舗情報を見る</a>
+            </div>
+            <p class="note layout-note">
+              家飲み研究ラボは、店内で飲酒を楽しむ飲食スペースではありません。ご自宅での飲み方をイメージしやすくするため、対象商品の味わいや割り方を少量で確認いただく小売店としての比較体験です。
+            </p>
+          </div>
+          <a class="layout-image-card reveal d1" href="assets/store-layout.jpg" data-lightbox-image data-caption="廣岡商店 店内レイアウト">
+            <img src="assets/store-layout.jpg" alt="廣岡商店の店内レイアウト図" loading="lazy" />
+            <span>画像を押すと大きく表示できます</span>
+          </a>
         </div>
       </section>
 
@@ -297,6 +341,14 @@
         </div>
       </div>
     </footer>
+
+    <div class="image-lightbox" id="imageLightbox" aria-hidden="true" role="dialog" aria-label="画像の拡大表示">
+      <button class="image-lightbox__close" type="button" id="imageLightboxClose" aria-label="拡大画像を閉じる">×</button>
+      <figure class="image-lightbox__frame">
+        <img id="lightboxImage" src="" alt="" />
+        <figcaption id="lightboxCaption"></figcaption>
+      </figure>
+    </div>
 
     <script src="site.js"></script>
   </body>
